@@ -1,13 +1,41 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { MoreHorizontal, Plus } from "lucide-react"
-import { sessions } from "@/lib/data"
 import Link from "next/link"
 
+interface Session {
+  id: string
+  qrId: string
+  latitude: number
+  longitude: number
+  wifi?: string
+  createdAt: string
+  timeoutAt: string
+}
+
 export default function SessionsPage() {
+  const [sessions, setSessions] = useState<Session[]>([])
+
+  useEffect(() => {
+    fetchSessions()
+  }, [])
+
+  const fetchSessions = async () => {
+    try {
+      const res = await fetch('/api/sessions')
+      const data = await res.json()
+      setSessions(data)
+    } catch (error) {
+      console.error('Failed to fetch sessions:', error)
+    }
+  }
+
+  const isActive = (timeoutAt: string) => new Date(timeoutAt) > new Date()
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -26,32 +54,34 @@ export default function SessionsPage() {
       <Card>
         <CardHeader>
           <CardTitle>All Sessions</CardTitle>
-          <CardDescription>Showing 1-4 of 4 sessions</CardDescription>
+          <CardDescription>Showing {sessions.length} sessions</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b text-left text-sm text-muted-foreground">
-                  <th className="pb-3 font-medium">Course</th>
+                  <th className="pb-3 font-medium">QR ID</th>
                   <th className="pb-3 font-medium">Status</th>
-                  <th className="pb-3 font-medium">Date</th>
-                  <th className="pb-3 font-medium">Attendance</th>
+                  <th className="pb-3 font-medium">Created</th>
+                  <th className="pb-3 font-medium">Location</th>
                   <th className="pb-3 font-medium text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {sessions.map((session) => (
                   <tr key={session.id} className="border-b last:border-0">
-                    <td className="py-4 font-medium">{session.course}</td>
+                    <td className="py-4 font-medium">{session.qrId}</td>
                     <td className="py-4">
-                      <Badge variant="secondary">
-                        {session.status.charAt(0).toUpperCase() + session.status.slice(1)}
+                      <Badge variant={isActive(session.timeoutAt) ? "default" : "secondary"}>
+                        {isActive(session.timeoutAt) ? "Active" : "Expired"}
                       </Badge>
                     </td>
-                    <td className="py-4 text-muted-foreground">{session.date}</td>
                     <td className="py-4 text-muted-foreground">
-                      {session.attendance}/{session.totalStudents}
+                      {new Date(session.createdAt).toLocaleString()}
+                    </td>
+                    <td className="py-4 text-muted-foreground">
+                      {session.latitude.toFixed(4)}, {session.longitude.toFixed(4)}
                     </td>
                     <td className="py-4 text-right">
                       <Button variant="ghost" size="icon">

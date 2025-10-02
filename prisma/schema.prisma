@@ -1,0 +1,44 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Student {
+  id            String   @id @default(cuid())
+  name          String
+  faceEmbedding String?  // JSON string of face embeddings
+  createdAt     DateTime @default(now())
+  attendances   Attendance[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  qrId      String   @unique
+  subject   String?
+  teacher   String?
+  latitude  Float
+  longitude Float
+  wifi      String?  // WiFi network name or IP range
+  createdAt DateTime @default(now())
+  timeoutAt DateTime
+  attendances Attendance[]
+}
+
+model Attendance {
+  id         String   @id @default(cuid())
+  studentId  String
+  sessionId  String
+  markedAt   DateTime @default(now())
+  gpsValid   Boolean  @default(false)
+  wifiValid  Boolean  @default(false)
+  faceValid  Boolean  @default(false)
+  student    Student  @relation(fields: [studentId], references: [id])
+  session    Session  @relation(fields: [sessionId], references: [id])
+}
