@@ -12,6 +12,7 @@ datasource db {
 
 model Student {
   id            String   @id @default(cuid())
+  studentId     String   @unique
   name          String
   faceEmbedding String?  // JSON string of face embeddings
   createdAt     DateTime @default(now())

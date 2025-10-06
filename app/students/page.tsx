@@ -1,20 +1,53 @@
 "use client"
 
+import Link from "next/link"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Progress } from "@/components/ui/progress"
-import { MessageSquare } from "lucide-react"
-import { students } from "@/lib/data"
+
+interface Student {
+  id: string
+  studentId: string
+  name: string
+  faceEmbedding: string | null
+  createdAt: string
+}
 
 export default function StudentsPage() {
+  const [students, setStudents] = useState<Student[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/students')
+      .then(res => res.json())
+      .then(data => {
+        setStudents(data)
+        setLoading(false)
+      })
+      .catch(error => {
+        console.error('Failed to fetch students:', error)
+        setLoading(false)
+      })
+  }, [])
+
+  if (loading) {
+    return <div className="p-6">Loading...</div>
+  }
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Students</h1>
         <p className="text-muted-foreground">
-          A list of all students enrolled in your courses. You can notify students with low attendance.
+          A list of all students enrolled in your courses.
         </p>
+      </div>
+
+      <div className="flex justify-end">
+        <Button asChild>
+          <Link href="/students/add">Add New Student</Link>
+        </Button>
       </div>
 
       <Card>
@@ -29,8 +62,7 @@ export default function StudentsPage() {
                 <tr className="border-b text-left text-sm text-muted-foreground">
                   <th className="pb-3 font-medium">Name</th>
                   <th className="pb-3 font-medium">Student ID</th>
-                  <th className="pb-3 font-medium">Overall Attendance</th>
-                  <th className="pb-3 font-medium text-right">Actions</th>
+                  <th className="pb-3 font-medium">Created At</th>
                 </tr>
               </thead>
               <tbody>
@@ -39,36 +71,14 @@ export default function StudentsPage() {
                     <td className="py-4">
                       <div className="flex items-center gap-3">
                         <Avatar>
-                          <AvatarImage src={student.avatar || "/placeholder.svg"} alt={student.name} />
                           <AvatarFallback>{student.name.charAt(0)}</AvatarFallback>
                         </Avatar>
                         <span className="font-medium">{student.name}</span>
                       </div>
                     </td>
                     <td className="py-4 text-muted-foreground">{student.studentId}</td>
-                    <td className="py-4">
-                      <div className="flex items-center gap-3">
-                        <Progress
-                          value={student.overallAttendance}
-                          className="h-2 w-32"
-                          indicatorClassName={
-                            student.overallAttendance >= 75
-                              ? "bg-primary"
-                              : student.overallAttendance >= 50
-                                ? "bg-warning"
-                                : "bg-destructive"
-                          }
-                        />
-                        <span className="text-sm font-medium">{student.overallAttendance}%</span>
-                      </div>
-                    </td>
-                    <td className="py-4 text-right">
-                      {student.overallAttendance < 75 && (
-                        <Button variant="destructive" size="sm" className="gap-2">
-                          <MessageSquare className="h-4 w-4" />
-                          Notify
-                        </Button>
-                      )}
+                    <td className="py-4 text-muted-foreground">
+                      {new Date(student.createdAt).toLocaleDateString()}
                     </td>
                   </tr>
                 ))}

@@ -39,6 +39,7 @@ export default function NewSessionPage() {
   const [session, setSession] = useState<Session | null>(null)
   const [attendances, setAttendances] = useState<Attendance[]>([])
   const [loading, setLoading] = useState(false)
+  const [timeLeft, setTimeLeft] = useState(0)
 
   useEffect(() => {
     // Get current location with high accuracy and error handling
@@ -78,6 +79,19 @@ export default function NewSessionPage() {
       setSession(data)
       // Start polling for attendances
       pollAttendances(data.id)
+
+      // Start timer for session expiration
+      const timeoutAt = new Date(data.session.timeoutAt);
+      const updateTimer = () => {
+        const now = new Date();
+        const diff = Math.max(0, Math.floor((timeoutAt.getTime() - now.getTime()) / 1000));
+        setTimeLeft(diff);
+        if (diff <= 0) {
+          clearInterval(timerId);
+        }
+      };
+      updateTimer();
+      const timerId = setInterval(updateTimer, 1000);
     } catch (error) {
       console.error('Failed to start session:', error)
     } finally {
@@ -154,6 +168,11 @@ export default function NewSessionPage() {
                   <p className="text-sm text-muted-foreground">
                     Status: {isActive ? 'Active' : 'Expired'}
                   </p>
+                  {isActive && (
+                    <p className="text-sm text-muted-foreground">
+                      Time left: <strong>{Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}</strong>
+                    </p>
+                  )}
                 </div>
               </CardContent>
             </Card>

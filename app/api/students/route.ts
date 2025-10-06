@@ -21,8 +21,17 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Name and faceEmbedding are required' }, { status: 400 });
         }
 
+        // Generate studentId
+        const lastStudent = await prisma.student.findFirst({ orderBy: { studentId: 'desc' } });
+        let studentId = 'S001';
+        if (lastStudent) {
+            const num = parseInt(lastStudent.studentId.slice(1)) + 1;
+            studentId = 'S' + num.toString().padStart(3, '0');
+        }
+
         const student = await prisma.student.create({
             data: {
+                studentId,
                 name,
                 faceEmbedding: JSON.stringify(faceEmbedding),
             },
