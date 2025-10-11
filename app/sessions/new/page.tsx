@@ -37,6 +37,7 @@ export default function NewSessionPage() {
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null)
   const [wifi, setWifi] = useState("")
   const [session, setSession] = useState<Session | null>(null)
+  const [qrUrl, setQrUrl] = useState<string>('')
   const [attendances, setAttendances] = useState<Attendance[]>([])
   const [loading, setLoading] = useState(false)
   const [timeLeft, setTimeLeft] = useState(0)
@@ -76,9 +77,10 @@ export default function NewSessionPage() {
         body: JSON.stringify({ latitude: location.latitude, longitude: location.longitude, wifi }),
       })
       const data = await res.json()
-      setSession(data)
+      setSession({ ...data.session, qrCodeDataUrl: data.qrCodeDataUrl })
+      setQrUrl(data.qrUrl)
       // Start polling for attendances
-      pollAttendances(data.id)
+      pollAttendances(data.session.id)
 
       // Start timer for session expiration
       const timeoutAt = new Date(data.session.timeoutAt);
@@ -163,6 +165,9 @@ export default function NewSessionPage() {
                 <div className="flex items-center gap-2 text-lg font-semibold text-muted-foreground">
                   <span className="text-primary">#</span>
                   QR ID: {session.qrId}
+                </div>
+                <div className="text-center">
+                  <p className="text-sm text-muted-foreground">Link: <a href={qrUrl} target="_blank" rel="noopener noreferrer" className="underline">{qrUrl}</a></p>
                 </div>
                 <div className="text-center">
                   <p className="text-sm text-muted-foreground">

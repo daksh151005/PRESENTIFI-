@@ -44,10 +44,10 @@ export async function POST(request: NextRequest) {
         const baseHost = host ? host.split(':')[0] : 'localhost';
         const port = host ? host.split(':')[1] : '3000';
         const qrHost = baseHost === 'localhost' ? `${ip}:${port}` : host;
-        const qrUrl = `https://${qrHost}/attendance/${qrId}`;
+        const qrUrl = `http://${qrHost}/attendance/${qrId}`;
         const qrCodeDataUrl = await QRCode.toDataURL(qrUrl);
 
-        return NextResponse.json({ session, qrCodeDataUrl });
+        return NextResponse.json({ session, qrCodeDataUrl, qrUrl });
     } catch (error) {
         console.error('Error creating session:', error);
         return NextResponse.json({ error: 'Failed to create session' }, { status: 500 });

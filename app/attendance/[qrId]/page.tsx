@@ -1,21 +1,23 @@
 'use client';
 
-'use client';
-
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { nets, detectSingleFace, TinyFaceDetectorOptions, draw, FaceExpressions } from 'face-api.js';
+import { nets, detectSingleFace, TinyFaceDetectorOptions, draw, FaceExpressions, FaceMatcher, LabeledFaceDescriptors } from 'face-api.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export default function AttendancePage() {
     const { qrId } = useParams();
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    const [studentId, setStudentId] = useState('');
-    const [message, setMessage] = useState('');
+    const [message, setMessage] = useState('Loading...');
     const [modelsLoaded, setModelsLoaded] = useState(false);
+    const [students, setStudents] = useState<any[]>([]);
+    const [faceMatcher, setFaceMatcher] = useState<FaceMatcher | null>(null);
     const [timeLeft, setTimeLeft] = useState(900); // 15 minutes in seconds
     const [expired, setExpired] = useState(false);
+    const [scanning, setScanning] = useState(false);
+    const [attendanceMarked, setAttendanceMarked] = useState(false);
+    const detectionInterval = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
         const loadModels = async () => {
@@ -26,7 +28,7 @@ export default function AttendancePage() {
                 await nets.faceRecognitionNet.loadFromUri(MODEL_URL);
                 await nets.faceExpressionNet.loadFromUri(MODEL_URL); // Load face expression model
                 setModelsLoaded(true);
-                setMessage('Models loaded, please start the camera.');
+                setMessage('Models loaded, loading session...');
             } catch (error) {
                 console.error("Failed to load face-api models:", error);
                 setMessage('Failed to load face-api models');
@@ -45,6 +47,14 @@ export default function AttendancePage() {
                     const now = new Date();
                     const remaining = Math.max(0, Math.floor((timeoutAt.getTime() - now.getTime()) / 1000));
                     setTimeLeft(remaining);
+                    if (remaining > 0) {
+                        setMessage('Session valid, starting camera...');
+                        await fetchStudents();
+                        startCamera();
+                    } else {
+                        setExpired(true);
+                        setMessage('Session expired');
+                    }
                 } else {
                     setMessage('Session not found or expired');
                     setExpired(true);
@@ -56,6 +66,35 @@ export default function AttendancePage() {
         };
         fetchSession();
     }, [qrId]);
+
+    const fetchStudents = async () => {
+        try {
+            const response = await fetch('/api/students');
+            if (response.ok) {
+                const studentData = await response.json();
+                setStudents(studentData);
+
+                // Create labeled face descriptors
+                const labeledDescriptors = studentData
+                    .filter((s: any) => s.faceEmbedding)
+                    .map((s: any) => {
+                        const descriptor = new Float32Array(JSON.parse(s.faceEmbedding));
+                        return new LabeledFaceDescriptors(s.studentId, [descriptor]);
+                    });
+
+                if (labeledDescriptors.length > 0) {
+                    const matcher = new FaceMatcher(labeledDescriptors, 0.6);
+                    setFaceMatcher(matcher);
+                    setMessage('Students loaded, ready for face recognition.');
+                } else {
+                    setMessage('No students with face embeddings found.');
+                }
+            }
+        } catch (error) {
+            console.error('Failed to fetch students:', error);
+            setMessage('Failed to load students');
+        }
+    };
 
     useEffect(() => {
         if (timeLeft <= 0) {
@@ -72,7 +111,9 @@ export default function AttendancePage() {
             setMessage('Models are not loaded yet');
             return;
         }
-        if (!window.isSecureContext) {
+        const isLocalhost = window.location.hostname.includes('localhost');
+        const isPrivateIP = /^(192\.168|10\.|172\.(1[6-9]|2[0-9]|3[0-1]))/.test(window.location.hostname);
+        if (!window.isSecureContext && !isLocalhost && !isPrivateIP) {
             setMessage('Camera access requires HTTPS. Please use a secure connection (e.g., ngrok or similar).');
             return;
         }
@@ -80,132 +121,132 @@ export default function AttendancePage() {
             const stream = await navigator.mediaDevices.getUserMedia({ video: true });
             if (videoRef.current) {
                 videoRef.current.srcObject = stream;
+                videoRef.current.play();
+                setScanning(true);
+                setMessage('Camera started, scanning for faces...');
+                startDetection();
             }
         } catch (error) {
-            setMessage('Camera access denied. Please allow camera permissions.');
+            console.error('Camera error:', error);
+            setMessage('Camera access denied. Please allow camera permissions in the browser prompt and reload the page.');
         }
     };
 
-    const captureFace = async () => {
-        if (expired) {
-            setMessage('QR code has expired. Attendance cannot be marked.');
-            return;
-        }
+    const startDetection = () => {
+        if (detectionInterval.current) clearInterval(detectionInterval.current);
+        detectionInterval.current = setInterval(async () => {
+            if (!videoRef.current || !faceMatcher || attendanceMarked || expired) return;
+            await detectAndMatchFace();
+        }, 2000); // Scan every 2 seconds
+    };
+
+    const detectAndMatchFace = async () => {
         if (!videoRef.current || !canvasRef.current) return;
-        if (!studentId) {
-            setMessage('Please enter your Student ID');
-            return;
-        }
 
         const video = videoRef.current;
         const canvas = canvasRef.current;
 
-        // Detect face with tinyFaceDetector
+        // Detect face
         const detection = await detectSingleFace(video, new TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor().withFaceExpressions();
 
         if (!detection) {
-            setMessage('No face detected, please try again');
             return;
         }
 
-        // Get face descriptor (embedding)
-        const faceEmbedding = detection.descriptor;
-
-        // Draw the detected face box on canvas (optional)
+        // Draw detection
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         const ctx = canvas.getContext('2d');
-        let dominantExpression: string | undefined;
         if (ctx) {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             draw.drawDetections(canvas, [detection.detection]);
             draw.drawFaceLandmarks(canvas, detection.landmarks);
-            // Display face expression
             const expressions = detection.expressions;
-            dominantExpression = Object.entries(expressions).reduce((a, b) => a[1] > b[1] ? a : b)[0] as keyof FaceExpressions;
+            const dominantExpression = Object.entries(expressions).reduce((a, b) => a[1] > b[1] ? a : b)[0] as keyof FaceExpressions;
             ctx.fillText(`Expression: ${dominantExpression}`, detection.detection.box.x, detection.detection.box.y - 10);
         }
 
-        // Convert Float32Array to regular array for JSON serialization
-        const faceEmbeddingArray = Array.from(faceEmbedding);
+        // Match face
+        const bestMatch = faceMatcher.findBestMatch(detection.descriptor);
+        const label = bestMatch.toString();
+        const distance = bestMatch.distance;
 
-        // Use Gemini API for additional processing (example)
-        const apiKey = process.env.GOOGLE_API_KEY;
-        if (apiKey) {
-            const genAI = new GoogleGenerativeAI(apiKey);
-            try {
-                const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-                const prompt = `Student ID: ${studentId}, Face detected with expression: ${dominantExpression || 'unknown'}`;
-                const result = await model.generateContent(prompt);
-                const response = await result.response;
-                const text = response.text();
-                console.log('Gemini API response:', text);
-            } catch (error) {
-                console.error('Gemini API error:', error);
-            }
+        if (distance < 0.6) {
+            setMessage(`Face matched: ${label}. Marking attendance...`);
+            markAttendance(label, detection.descriptor, dominantExpression);
+        } else {
+            setMessage('Face not recognized. Please try again.');
         }
-
-        // Get location
-        navigator.geolocation.getCurrentPosition(async (position) => {
-            const { latitude, longitude } = position.coords;
-
-            // Get WiFi (placeholder)
-            const wifi = 'CollegeWiFi'; // In real app, get from browser API or input
-
-            // Send to API
-            const response = await fetch('/api/attendance', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    qrId,
-                    studentId,
-                    faceEmbedding: JSON.stringify(faceEmbeddingArray),
-                    latitude,
-                    longitude,
-                    wifi,
-                }),
-            });
-
-            const data = await response.json();
-            if (response.ok) {
-                setMessage('Attendance marked successfully!');
-            } else {
-                setMessage(data.error || 'Failed to mark attendance');
-            }
-        });
     };
+
+    const markAttendance = async (matchedStudentId: string, faceDescriptor: Float32Array, expression?: string) => {
+        if (attendanceMarked || expired) return;
+
+        setAttendanceMarked(true);
+        if (detectionInterval.current) clearInterval(detectionInterval.current);
+
+        try {
+            navigator.geolocation.getCurrentPosition(async (position) => {
+                const { latitude, longitude } = position.coords;
+                const wifi = 'CollegeWiFi'; // Placeholder
+
+                const response = await fetch('/api/attendance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        qrId,
+                        studentId: matchedStudentId,
+                        faceEmbedding: JSON.stringify(Array.from(faceDescriptor)),
+                        latitude,
+                        longitude,
+                        wifi,
+                    }),
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    setMessage(`Attendance marked successfully for ${matchedStudentId}!`);
+                } else {
+                    setMessage(data.error || 'Failed to mark attendance');
+                    setAttendanceMarked(false);
+                    startDetection(); // Retry
+                }
+            }, (error) => {
+                setMessage('Location access denied. Attendance not marked.');
+                setAttendanceMarked(false);
+                startDetection();
+            });
+        } catch (error) {
+            console.error('Error marking attendance:', error);
+            setMessage('Error marking attendance');
+            setAttendanceMarked(false);
+            startDetection();
+        }
+    };
+
+    useEffect(() => {
+        return () => {
+            if (detectionInterval.current) clearInterval(detectionInterval.current);
+            if (videoRef.current && videoRef.current.srcObject) {
+                (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
+            }
+        };
+    }, []);
 
     return (
         <div className="p-4 sm:p-6 max-w-lg mx-auto text-center min-h-screen flex flex-col justify-center">
             <img src="/placeholder-logo.svg" alt="Presentifi" className="mx-auto mb-4 w-12 h-12 sm:w-16 sm:h-16" />
             <h1 className="text-2xl sm:text-3xl font-bold mb-2">Mark Attendance</h1>
             <p className="mb-4 sm:mb-6 text-sm sm:text-base text-gray-600">
-                Show your face to the camera and enter your Student ID for session: <strong>{qrId}</strong>
+                Show your face to the camera for session: <strong>{qrId}</strong>. Attendance will be marked automatically upon recognition.
             </p>
             <div className="flex flex-col items-center gap-4 mb-4">
                 <video ref={videoRef} autoPlay muted className="w-full max-w-xs h-48 rounded border border-gray-300" />
-                <div className="flex flex-col items-center gap-3 w-full max-w-xs">
-                    <label htmlFor="studentId" className="font-semibold text-sm sm:text-base">Student ID</label>
-                    <input
-                        id="studentId"
-                        type="text"
-                        placeholder="e.g., S001"
-                        value={studentId}
-                        onChange={(e) => setStudentId(e.target.value)}
-                        className="input input-bordered w-full"
-                    />
-                    <button onClick={captureFace} className="btn btn-primary w-full mt-2" disabled={expired}>
-                        <svg xmlns="http://www.w3.org/2000/svg" className="inline-block w-4 h-4 sm:w-5 sm:h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h1l1-2h14l1 2h1v8a2 2 0 01-2 2H5a2 2 0 01-2-2v-8z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 14a3 3 0 100-6 3 3 0 000 6z" />
-                        </svg>
-                        Capture Photo & Submit
-                    </button>
-                </div>
+                <canvas ref={canvasRef} className="w-full max-w-xs h-48 rounded border border-gray-300" />
             </div>
-            <button onClick={startCamera} className="btn btn-secondary mb-4 w-full max-w-xs" disabled={expired || !modelsLoaded}>
-                Start Camera
-            </button>
+            {scanning && (
+                <p className="text-sm text-blue-600 mb-4">Scanning for faces...</p>
+            )}
             <p className="text-sm text-gray-500 mb-4">Time left: <strong>{Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}</strong></p>
             <button className="text-blue-600 underline text-sm" onClick={() => alert('Accessibility mode coming soon')}>
                 Use Accessibility Mode
