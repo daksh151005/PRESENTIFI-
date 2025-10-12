@@ -21,24 +21,7 @@ function deg2rad(deg: number): number {
     return deg * (Math.PI / 180);
 }
 
-// Face validation using Euclidean distance
-function validateFace(storedEmbedding: string, providedEmbedding: string): boolean {
-    try {
-        const stored = JSON.parse(storedEmbedding) as number[];
-        const provided = JSON.parse(providedEmbedding) as number[];
 
-        if (stored.length !== provided.length) return false;
-
-        const distance = Math.sqrt(
-            stored.reduce((sum, val, i) => sum + Math.pow(val - provided[i], 2), 0)
-        );
-
-        return distance < 0.5; // Threshold from Python code
-    } catch (error) {
-        console.error('Error validating face:', error);
-        return false;
-    }
-}
 
 export async function POST(request: NextRequest) {
     try {

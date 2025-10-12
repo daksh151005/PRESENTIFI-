@@ -1,14 +1,16 @@
-# TODO: Simplify Attendance Marking
+# TODO: Implement Simplified Attendance System
 
 ## Steps to Complete
-- [x] Remove face recognition and model loading
-- [x] Add student ID input field
-- [x] Capture photo on button click
-- [x] Save photo, location, wifi, and time to database
-- [x] Update API to accept photo instead of face embedding
-- [x] Remove unnecessary dependencies and files
+- [x] Change session timeout to 60 seconds
+- [x] Ensure GPS validation within 100m and WiFi match
+- [x] Update attendance page to capture photo on button click with student ID
+- [x] Update API to accept studentId and photo, mark attendance
+- [x] Add teacher admin panel for managing students and viewing attendances
+- [x] Allow students to view their attendance records
+- [x] Remove face recognition dependencies and code
 
 ## Notes
 - Camera starts immediately on page load
-- Student enters ID and clicks "Mark Attendance" to capture and submit
-- Photo is stored as base64 in database
+- Student enters ID, clicks "Mark Attendance" to capture and submit
+- Attendance marked if validations pass
+- Teachers can generate QR for sessions with 60s timeout

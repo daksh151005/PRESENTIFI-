@@ -24,8 +24,8 @@ export async function POST(request: NextRequest) {
         // Generate unique QR ID
         const qrId = Math.random().toString(36).substring(2, 10);
 
-        // Set timeout 15 minutes from now
-        const timeoutAt = new Date(Date.now() + 15 * 60 * 1000);
+        // Set timeout 60 seconds from now
+        const timeoutAt = new Date(Date.now() + 60 * 1000);
 
         // Create session in DB
         const session = await prisma.session.create({

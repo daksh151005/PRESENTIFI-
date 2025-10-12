@@ -1,18 +1,17 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 
 export default function AttendancePage() {
     const { qrId } = useParams();
-    const videoRef = useRef<HTMLVideoElement>(null);
-    const canvasRef = useRef<HTMLCanvasElement>(null);
     const [message, setMessage] = useState('Loading session...');
-    const [timeLeft, setTimeLeft] = useState(900); // 15 minutes in seconds
+    const [timeLeft, setTimeLeft] = useState(60); // 60 seconds
     const [expired, setExpired] = useState(false);
     const [studentId, setStudentId] = useState('');
     const [attendanceMarked, setAttendanceMarked] = useState(false);
-    const [cameraStarted, setCameraStarted] = useState(false);
+    const [photo, setPhoto] = useState<string | null>(null);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchSession = async () => {
@@ -25,7 +24,7 @@ export default function AttendancePage() {
                     const remaining = Math.max(0, Math.floor((timeoutAt.getTime() - now.getTime()) / 1000));
                     setTimeLeft(remaining);
                     if (remaining > 0) {
-                        setMessage('Session valid. Click "Start Camera" to begin.');
+                        setMessage('Session valid. Take a photo to mark attendance.');
                     } else {
                         setExpired(true);
                         setMessage('Session expired');
@@ -37,6 +36,8 @@ export default function AttendancePage() {
             } catch (error) {
                 console.error('Failed to fetch session:', error);
                 setMessage('Failed to load session');
+            } finally {
+                setLoading(false);
             }
         };
         fetchSession();
@@ -52,90 +53,69 @@ export default function AttendancePage() {
         return () => clearTimeout(timer);
     }, [timeLeft]);
 
-    const startCamera = async () => {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-            if (videoRef.current) {
-                videoRef.current.srcObject = stream;
-                videoRef.current.play();
-                setCameraStarted(true);
-                setMessage('Camera started. Enter your Student ID and click "Mark Attendance".');
-            }
-        } catch (error) {
-            console.error('Camera error:', error);
-            setMessage('Camera access denied. Please allow camera permissions in your browser settings and reload the page. If using HTTP, try HTTPS or localhost. For mobile, ensure the site is HTTPS.');
+    const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = () => {
+                setPhoto(reader.result as string);
+                setMessage('Photo captured. Enter your Student ID and click "Mark Attendance".');
+            };
+            reader.readAsDataURL(file);
         }
-    };
-
-    const capturePhoto = () => {
-        if (!videoRef.current || !canvasRef.current) return null;
-        const video = videoRef.current;
-        const canvas = canvasRef.current;
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-            ctx.drawImage(video, 0, 0);
-            return canvas.toDataURL('image/jpeg');
-        }
-        return null;
     };
 
     const markAttendance = async () => {
-        if (attendanceMarked || expired || !studentId.trim()) return;
+        if (!photo) return;
 
-        const photo = capturePhoto();
-        if (!photo) {
-            setMessage('Failed to capture photo');
+        // Get location
+        if (!navigator.geolocation) {
+            setMessage('Geolocation is not supported');
             return;
         }
 
-        setAttendanceMarked(true);
-        setMessage('Marking attendance...');
+        navigator.geolocation.getCurrentPosition(async (position) => {
+            const { latitude, longitude } = position.coords;
 
-        try {
-            navigator.geolocation.getCurrentPosition(async (position) => {
-                const { latitude, longitude } = position.coords;
-                const wifi = navigator.onLine ? 'Connected' : 'Offline'; // Simple wifi check
-
+            try {
                 const response = await fetch('/api/attendance', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         qrId,
-                        studentId: studentId.trim(),
+                        studentId,
                         photo,
                         latitude,
                         longitude,
-                        wifi,
+                        wifi: navigator.onLine ? 'connected' : null, // Simple wifi check
                     }),
                 });
 
                 const data = await response.json();
                 if (response.ok) {
-                    setMessage(`Attendance marked successfully for ${studentId}!`);
+                    setAttendanceMarked(true);
+                    setMessage(`Attendance marked successfully! GPS: ${data.validations.gpsValid ? 'Valid' : 'Invalid'}, WiFi: ${data.validations.wifiValid ? 'Valid' : 'Invalid'}`);
                 } else {
                     setMessage(data.error || 'Failed to mark attendance');
-                    setAttendanceMarked(false);
                 }
-            }, (error) => {
-                setMessage('Location access denied. Attendance not marked.');
-                setAttendanceMarked(false);
-            });
-        } catch (error) {
-            console.error('Error marking attendance:', error);
-            setMessage('Error marking attendance');
-            setAttendanceMarked(false);
-        }
+            } catch (error) {
+                console.error('Failed to mark attendance:', error);
+                setMessage('Failed to mark attendance');
+            }
+        }, (error) => {
+            console.error('Failed to get location:', error);
+            setMessage('Failed to get location');
+        });
     };
 
-    useEffect(() => {
-        return () => {
-            if (videoRef.current && videoRef.current.srcObject) {
-                (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
-            }
-        };
-    }, []);
+    if (loading) {
+        return (
+            <div className="p-4 sm:p-6 max-w-lg mx-auto text-center min-h-screen flex flex-col justify-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-gray-600">Loading session...</p>
+            </div>
+        );
+    }
 
     return (
         <div className="p-4 sm:p-6 max-w-lg mx-auto text-center min-h-screen flex flex-col justify-center">
@@ -144,18 +124,25 @@ export default function AttendancePage() {
             <p className="mb-4 sm:mb-6 text-sm sm:text-base text-gray-600">
                 For session: <strong>{qrId}</strong>
             </p>
-            {!cameraStarted && !expired && (
-                <button
-                    onClick={startCamera}
-                    className="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 mb-4"
-                >
-                    Start Camera
-                </button>
+            {!expired && (
+                <div className="mb-4">
+                    <label htmlFor="photo" className="block text-sm font-medium text-gray-700 mb-2">Take Photo</label>
+                    <input
+                        id="photo"
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={handlePhotoChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        disabled={attendanceMarked || expired}
+                    />
+                </div>
             )}
-            <div className="flex flex-col items-center gap-4 mb-4">
-                <video ref={videoRef} autoPlay muted className="w-full max-w-xs h-48 rounded border border-gray-300" />
-                <canvas ref={canvasRef} className="hidden" />
-            </div>
+            {photo && (
+                <div className="flex flex-col items-center gap-4 mb-4">
+                    <img src={photo} alt="Captured" className="w-full max-w-xs h-48 rounded border border-gray-300 object-cover" />
+                </div>
+            )}
             <div className="mb-4">
                 <label htmlFor="studentId" className="block text-sm font-medium text-gray-700 mb-2">Student ID</label>
                 <input
@@ -170,7 +157,7 @@ export default function AttendancePage() {
             </div>
             <button
                 onClick={markAttendance}
-                disabled={attendanceMarked || expired || !studentId.trim() || !cameraStarted}
+                disabled={attendanceMarked || expired || !studentId.trim() || !photo}
                 className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
                 {attendanceMarked ? 'Attendance Marked' : 'Mark Attendance'}
