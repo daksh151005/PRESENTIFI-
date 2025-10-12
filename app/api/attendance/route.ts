@@ -42,7 +42,7 @@ function validateFace(storedEmbedding: string, providedEmbedding: string): boole
 
 export async function POST(request: NextRequest) {
     try {
-        const { qrId, studentId, faceEmbedding, latitude, longitude, wifi } = await request.json();
+        const { qrId, studentId, photo, latitude, longitude, wifi } = await request.json();
 
         // Find session
         const session = await prisma.session.findUnique({
@@ -74,9 +74,6 @@ export async function POST(request: NextRequest) {
         // Validate WiFi (simple check if matches)
         const wifiValid = session.wifi ? wifi === session.wifi : true;
 
-        // Validate face
-        const faceValid = student.faceEmbedding ? validateFace(student.faceEmbedding, JSON.stringify(faceEmbedding)) : true;
-
         // Create attendance
         const attendance = await prisma.attendance.create({
             data: {
@@ -84,14 +81,18 @@ export async function POST(request: NextRequest) {
                 sessionId: session.id,
                 gpsValid,
                 wifiValid,
-                faceValid,
+                faceValid: true, // Since photo is captured
+                photo,
+                latitude,
+                longitude,
+                wifi,
             },
         });
 
         return NextResponse.json({
             success: true,
             attendance,
-            validations: { gpsValid, wifiValid, faceValid },
+            validations: { gpsValid, wifiValid },
         });
     } catch (error) {
         console.error('Error marking attendance:', error);

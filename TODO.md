@@ -1,14 +1,14 @@
-# TODO: Fix Attendance Page Face Scanning
+# TODO: Simplify Attendance Marking
 
 ## Steps to Complete
-- [x] Download face-api.js models to public/models directory
-- [x] Update app/attendance/[qrId]/page.tsx to load face-api.js models on component mount
-- [x] Implement real face detection and embedding extraction in captureFace function
-- [x] Replace placeholder face embedding with real embedding from face-api.js
-- [x] Fix webpack configuration to ignore Node.js modules (fs, encoding) for face-api.js
-- [ ] Test the updated attendance page to verify face scanning works
+- [x] Remove face recognition and model loading
+- [x] Add student ID input field
+- [x] Capture photo on button click
+- [x] Save photo, location, wifi, and time to database
+- [x] Update API to accept photo instead of face embedding
+- [x] Remove unnecessary dependencies and files
 
 ## Notes
-- Ensure camera permissions are granted
-- Handle cases where no face is detected
-- Verify backend API correctly validates the real embeddings
+- Camera starts immediately on page load
+- Student enters ID and clicks "Mark Attendance" to capture and submit
+- Photo is stored as base64 in database

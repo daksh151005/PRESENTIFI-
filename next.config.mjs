@@ -1,4 +1,5 @@
-/** @type {import('next').NextConfig} */
+import fs from 'fs';
+
 const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
