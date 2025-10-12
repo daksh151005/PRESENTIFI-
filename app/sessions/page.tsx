@@ -15,6 +15,9 @@ interface Session {
   wifi?: string
   createdAt: string
   timeoutAt: string
+  _count: {
+    attendances: number
+  }
 }
 
 export default function SessionsPage() {
@@ -22,6 +25,8 @@ export default function SessionsPage() {
 
   useEffect(() => {
     fetchSessions()
+    const interval = setInterval(fetchSessions, 10000) // Poll every 10 seconds
+    return () => clearInterval(interval)
   }, [])
 
   const fetchSessions = async () => {
@@ -65,6 +70,7 @@ export default function SessionsPage() {
                   <th className="pb-3 font-medium">Status</th>
                   <th className="pb-3 font-medium">Created</th>
                   <th className="pb-3 font-medium">Location</th>
+                  <th className="pb-3 font-medium">Attendances</th>
                   <th className="pb-3 font-medium text-right">Actions</th>
                 </tr>
               </thead>
@@ -82,6 +88,9 @@ export default function SessionsPage() {
                     </td>
                     <td className="py-4 text-muted-foreground">
                       {session.latitude.toFixed(4)}, {session.longitude.toFixed(4)}
+                    </td>
+                    <td className="py-4 text-muted-foreground">
+                      {session._count.attendances}
                     </td>
                     <td className="py-4 text-right">
                       <Button variant="ghost" size="icon">

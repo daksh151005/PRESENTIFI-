@@ -23,6 +23,25 @@ function deg2rad(deg: number): number {
 
 
 
+export async function GET() {
+    try {
+        const attendances = await prisma.attendance.findMany({
+            include: {
+                student: true,
+                session: true,
+            },
+            orderBy: {
+                markedAt: 'desc',
+            },
+        });
+
+        return NextResponse.json(attendances);
+    } catch (error) {
+        console.error('Error fetching attendances:', error);
+        return NextResponse.json({ error: 'Failed to fetch attendances' }, { status: 500 });
+    }
+}
+
 export async function POST(request: NextRequest) {
     try {
         const { qrId, studentId, photo, latitude, longitude, wifi } = await request.json();
@@ -43,7 +62,7 @@ export async function POST(request: NextRequest) {
 
         // Find student
         const student = await prisma.student.findUnique({
-            where: { id: studentId },
+            where: { studentId },
         });
 
         if (!student) {
@@ -60,7 +79,7 @@ export async function POST(request: NextRequest) {
         // Create attendance
         const attendance = await prisma.attendance.create({
             data: {
-                studentId,
+                studentId: student.id,
                 sessionId: session.id,
                 gpsValid,
                 wifiValid,

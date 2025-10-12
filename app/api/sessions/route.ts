@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
         const baseHost = host ? host.split(':')[0] : 'localhost';
         const port = host ? host.split(':')[1] : '3000';
         const qrHost = baseHost === 'localhost' ? `${ip}:${port}` : host;
-        const qrUrl = `http://${qrHost}/attendance/${qrId}`;
+        const qrUrl = `https://${qrHost}/attendance/${qrId}`;
         const qrCodeDataUrl = await QRCode.toDataURL(qrUrl);
 
         return NextResponse.json({ session, qrCodeDataUrl, qrUrl });
@@ -58,6 +58,11 @@ export async function GET() {
     try {
         const sessions = await prisma.session.findMany({
             orderBy: { createdAt: 'desc' },
+            include: {
+                _count: {
+                    select: { attendances: true },
+                },
+            },
         });
         return NextResponse.json(sessions);
     } catch (error) {

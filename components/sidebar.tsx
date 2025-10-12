@@ -2,12 +2,13 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, Calendar, Users, GraduationCap } from "lucide-react"
+import { LayoutDashboard, Calendar, Users, GraduationCap, CheckCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Sessions", href: "/sessions", icon: Calendar },
+  { name: "Attendance", href: "/attendance", icon: CheckCircle },
   { name: "Students", href: "/students", icon: Users },
 ]
 

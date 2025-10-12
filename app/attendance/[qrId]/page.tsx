@@ -110,47 +110,47 @@ export default function AttendancePage() {
 
     if (loading) {
         return (
-            <div className="p-4 sm:p-6 max-w-lg mx-auto text-center min-h-screen flex flex-col justify-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                <p className="text-gray-600">Loading session...</p>
+            <div className="p-6 max-w-md mx-auto text-center min-h-screen flex flex-col justify-center">
+                <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto mb-6"></div>
+                <p className="text-gray-600 text-lg">Loading session...</p>
             </div>
         );
     }
 
     return (
-        <div className="p-4 sm:p-6 max-w-lg mx-auto text-center min-h-screen flex flex-col justify-center">
-            <img src="/placeholder-logo.svg" alt="Presentifi" className="mx-auto mb-4 w-12 h-12 sm:w-16 sm:h-16" />
-            <h1 className="text-2xl sm:text-3xl font-bold mb-2">Mark Attendance</h1>
-            <p className="mb-4 sm:mb-6 text-sm sm:text-base text-gray-600">
+        <div className="p-6 max-w-md mx-auto text-center min-h-screen flex flex-col justify-center">
+            <img src="/placeholder-logo.svg" alt="Presentifi" className="mx-auto mb-6 w-20 h-20" />
+            <h1 className="text-3xl font-bold mb-4">Mark Attendance</h1>
+            <p className="mb-6 text-base text-gray-600">
                 For session: <strong>{qrId}</strong>
             </p>
             {!expired && (
-                <div className="mb-4">
-                    <label htmlFor="photo" className="block text-sm font-medium text-gray-700 mb-2">Take Photo</label>
+                <div className="mb-6">
+                    <label htmlFor="photo" className="block text-lg font-medium text-gray-700 mb-4">Take Photo</label>
                     <input
                         id="photo"
                         type="file"
                         accept="image/*"
                         capture="environment"
                         onChange={handlePhotoChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-4 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg"
                         disabled={attendanceMarked || expired}
                     />
                 </div>
             )}
             {photo && (
-                <div className="flex flex-col items-center gap-4 mb-4">
-                    <img src={photo} alt="Captured" className="w-full max-w-xs h-48 rounded border border-gray-300 object-cover" />
+                <div className="flex flex-col items-center gap-4 mb-6">
+                    <img src={photo} alt="Captured" className="w-full h-64 rounded-lg border-2 border-gray-300 object-cover" />
                 </div>
             )}
-            <div className="mb-4">
-                <label htmlFor="studentId" className="block text-sm font-medium text-gray-700 mb-2">Student ID</label>
+            <div className="mb-6">
+                <label htmlFor="studentId" className="block text-lg font-medium text-gray-700 mb-4">Student ID</label>
                 <input
                     id="studentId"
                     type="text"
                     value={studentId}
                     onChange={(e) => setStudentId(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-4 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg"
                     placeholder="Enter your Student ID"
                     disabled={attendanceMarked || expired}
                 />
@@ -158,12 +158,12 @@ export default function AttendancePage() {
             <button
                 onClick={markAttendance}
                 disabled={attendanceMarked || expired || !studentId.trim() || !photo}
-                className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                className="w-full bg-blue-600 text-white py-4 px-6 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-lg font-semibold"
             >
                 {attendanceMarked ? 'Attendance Marked' : 'Mark Attendance'}
             </button>
-            <p className="text-sm text-gray-500 mt-4">Time left: <strong>{Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}</strong></p>
-            <p className="mt-4 text-center text-red-600 text-sm">{message}</p>
+            <p className="text-lg text-gray-500 mt-6">Time left: <strong>{Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}</strong></p>
+            <p className="mt-6 text-center text-red-600 text-lg">{message}</p>
         </div>
     );
 }
