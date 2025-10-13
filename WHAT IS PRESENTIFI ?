@@ -1,0 +1,29 @@
+ABSTRACT 
+ Presentifi is an advanced attendance solution for educational institutions. It integrates QR code scanning, Face ID verification, and GPS/WiFi Address validation to ensure secure, real-time attendance. Teachers generate   session-based QR codes, and students mark their presence through a fast, multi-factor process.  Attendance analytics are instantly updated for faculty review. 
+
+OBJECTIVES
+ Deploy automated, secure QR code attendance with real-time analytics. 
+ Reduce proxies by combining Face ID, GPS, and WiFi Address verification. 
+ Provide faculty with robust attendance management tools and simple controls .
+
+RESULTS & ANALYSIS 
+ 99% accurate, fraud-resistant attendance confirmation. 
+ Timely alerts and visual dashboards for attendance, lateness, and trends. 
+ Immediate status updates for students and faculty.
+ Data privacy maintained, access limited to teachers only.
+
+METHODOLOGY
+ Teacher generates unique QR code, displayed for every class session (valid for 60 seconds) .
+ Students scan code using mobile app .
+ Face ID is captured upon scan.
+ System checks GPS location and WiFi Address.
+ Attendance is marked only if all verification steps are valid; else user is alerted.
+
+SYSTEM FEATURES 
+ Teacher-hosted dynamic QR codes .
+ Real-time Face ID and GPS/WiFi Address validity. 
+ Instant dashboard & analytics .
+ Faculty-restricted access for security.
+
+CONCLUSION
+ Presentifi offers a seamless, secure, and efficient attendance process, automating real-time validation with multi-layer checks. Faculty benefit with detailed analytics and fully protected records, while students enjoy a quick and easy check-in experience.
