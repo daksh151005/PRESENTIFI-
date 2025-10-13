@@ -1,16 +1,9 @@
-# TODO: Implement Simplified Attendance System
+# TODO: Make Today Attendance Sync Like Live Attendance
 
 ## Steps to Complete
-- [x] Change session timeout to 60 seconds
-- [x] Ensure GPS validation within 100m and WiFi match
-- [x] Update attendance page to capture photo on button click with student ID
-- [x] Update API to accept studentId and photo, mark attendance
-- [x] Add teacher admin panel for managing students and viewing attendances
-- [x] Allow students to view their attendance records
-- [x] Remove face recognition dependencies and code
+- [x] Modify GET /api/attendance to filter attendances by today's date when query param 'date=today' is provided
+- [x] Update app/attendance/page.tsx to fetch with '?date=today' and poll every 5 seconds instead of 10
 
 ## Notes
-- Camera starts immediately on page load
-- Student enters ID, clicks "Mark Attendance" to capture and submit
-- Attendance marked if validations pass
-- Teachers can generate QR for sessions with 60s timeout
+- Use date comparison in Prisma query to filter markedAt >= start of today and < start of tomorrow
+- Change polling interval from 10000ms to 5000ms for more live-like updates

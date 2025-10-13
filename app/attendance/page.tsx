@@ -1,9 +1,16 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Button } from "@/components/ui/button"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { CalendarIcon } from "lucide-react"
+import { format } from "date-fns"
+import { cn } from "@/lib/utils"
+import Image from "next/image"
 
 interface Attendance {
     id: string
@@ -29,22 +36,24 @@ interface Attendance {
 
 export default function AttendancePage() {
     const [attendances, setAttendances] = useState<Attendance[]>([])
+    const [selectedDate, setSelectedDate] = useState<Date>(new Date())
 
-    useEffect(() => {
-        fetchAttendances()
-        const interval = setInterval(fetchAttendances, 10000) // Poll every 10 seconds
-        return () => clearInterval(interval)
-    }, [])
-
-    const fetchAttendances = async () => {
+    const fetchAttendances = useCallback(async () => {
         try {
-            const res = await fetch('/api/attendance')
+            const dateParam = selectedDate.toISOString().split('T')[0] // YYYY-MM-DD format
+            const res = await fetch(`/api/attendance?date=${dateParam}`)
             const data = await res.json()
             setAttendances(data)
         } catch (error) {
             console.error('Failed to fetch attendances:', error)
         }
-    }
+    }, [selectedDate])
+
+    useEffect(() => {
+        fetchAttendances()
+        const interval = setInterval(fetchAttendances, 5000) // Poll every 5 seconds for live sync
+        return () => clearInterval(interval)
+    }, [fetchAttendances])
 
     return (
         <div className="space-y-6">
@@ -52,6 +61,30 @@ export default function AttendancePage() {
                 <div>
                     <h1 className="text-3xl font-bold">Attendance Records</h1>
                     <p className="text-muted-foreground">View all attendance records with student and session details.</p>
+                </div>
+                <div className="flex items-center space-x-2">
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button
+                                variant={"outline"}
+                                className={cn(
+                                    "w-[280px] justify-start text-left font-normal",
+                                    !selectedDate && "text-muted-foreground"
+                                )}
+                            >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                            <Calendar
+                                mode="single"
+                                selected={selectedDate}
+                                onSelect={(date: Date | undefined) => date && setSelectedDate(date)}
+                                initialFocus
+                            />
+                        </PopoverContent>
+                    </Popover>
                 </div>
             </div>
 
@@ -113,9 +146,11 @@ export default function AttendancePage() {
                                         </td>
                                         <td className="py-4">
                                             {attendance.photo ? (
-                                                <img
+                                                <Image
                                                     src={attendance.photo}
                                                     alt="Attendance photo"
+                                                    width={40}
+                                                    height={40}
                                                     className="h-10 w-10 rounded object-cover"
                                                 />
                                             ) : (

@@ -1,18 +1,74 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Users, UserCheck, UserX, MoreHorizontal } from "lucide-react"
-import { students, todayAttendance } from "@/lib/data"
+import { students as sampleStudents } from "@/lib/data"
 import Link from "next/link"
 
+interface Attendance {
+  id: string
+  markedAt: string
+  gpsValid: boolean
+  wifiValid: boolean
+  faceValid: boolean
+  photo?: string
+  latitude?: number
+  longitude?: number
+  wifi?: string
+  student: {
+    id: string
+    studentId: string
+    name: string
+  }
+  session: {
+    id: string
+    qrId: string
+    subject?: string
+  }
+}
+
+interface Student {
+  id: string
+  studentId: string
+  name: string
+}
+
 export default function DashboardPage() {
+  const [attendances, setAttendances] = useState<Attendance[]>([])
+  const [students, setStudents] = useState<Student[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchData()
+    const interval = setInterval(fetchData, 5000) // Poll every 5 seconds
+    return () => clearInterval(interval)
+  }, [])
+
+  const fetchData = async () => {
+    try {
+      const [attendanceRes, studentsRes] = await Promise.all([
+        fetch('/api/attendance?date=today'),
+        fetch('/api/students')
+      ])
+      const attendanceData = await attendanceRes.json()
+      const studentsData = await studentsRes.json()
+      setAttendances(attendanceData)
+      setStudents(studentsData)
+    } catch (error) {
+      console.error('Failed to fetch data:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const totalStudents = students.length
-  const presentToday = todayAttendance.filter((a) => a.status === "present").length
-  const absentToday = todayAttendance.filter((a) => a.status === "absent").length
-  const attendancePercentage = Math.round((presentToday / totalStudents) * 100)
+  const presentToday = attendances.length
+  const absentToday = totalStudents - presentToday
+  const attendancePercentage = totalStudents > 0 ? Math.round((presentToday / totalStudents) * 100) : 0
 
   return (
     <div className="space-y-6">
@@ -66,65 +122,77 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Today's Attendance Table */}
+      {/* Today's Attendance */}
       <Card>
         <CardHeader>
           <CardTitle>Today&apos;s Attendance</CardTitle>
-          <CardDescription>A list of all students and their attendance status for the current session.</CardDescription>
+          <CardDescription>A list of all students and their attendance status for today.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b text-left text-sm text-muted-foreground">
-                  <th className="pb-3 font-medium">Student</th>
-                  <th className="pb-3 font-medium">ID</th>
-                  <th className="pb-3 font-medium">Status</th>
-                  <th className="pb-3 font-medium text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {students.map((student) => {
-                  const attendance = todayAttendance.find((a) => a.studentId === student.id)
-                  const status = attendance?.status || "absent"
+          {loading ? (
+            <div className="text-center py-8">Loading attendance data...</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b text-left text-sm text-muted-foreground">
+                    <th className="pb-3 font-medium">Student</th>
+                    <th className="pb-3 font-medium">ID</th>
+                    <th className="pb-3 font-medium">Status</th>
+                    <th className="pb-3 font-medium">Marked At</th>
+                    <th className="pb-3 font-medium">Photo</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {students.map((student) => {
+                    const attendance = attendances.find((a) => a.student.studentId === student.studentId)
+                    const status = attendance ? "present" : "absent"
 
-                  return (
-                    <tr key={student.id} className="border-b last:border-0">
-                      <td className="py-4">
-                        <div className="flex items-center gap-3">
-                          <Avatar>
-                            <AvatarImage src={student.avatar || "/placeholder.svg"} alt={student.name} />
-                            <AvatarFallback>{student.name.charAt(0)}</AvatarFallback>
-                          </Avatar>
-                          <span className="font-medium">{student.name}</span>
-                        </div>
-                      </td>
-                      <td className="py-4 text-muted-foreground">{student.studentId}</td>
-                      <td className="py-4">
-                        <Badge
-                          variant={status === "present" ? "default" : status === "late" ? "secondary" : "destructive"}
-                          className={
-                            status === "present"
-                              ? "bg-success text-success-foreground hover:bg-success/90"
-                              : status === "late"
-                                ? "bg-warning text-warning-foreground hover:bg-warning/90"
+                    return (
+                      <tr key={student.id} className="border-b last:border-0">
+                        <td className="py-4">
+                          <div className="flex items-center gap-3">
+                            <Avatar>
+                              <AvatarImage src={attendance?.photo || "/placeholder.svg"} alt={student.name} />
+                              <AvatarFallback>{student.name.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                            <span className="font-medium">{student.name}</span>
+                          </div>
+                        </td>
+                        <td className="py-4 text-muted-foreground">{student.studentId}</td>
+                        <td className="py-4">
+                          <Badge
+                            variant={status === "present" ? "default" : "destructive"}
+                            className={
+                              status === "present"
+                                ? "bg-success text-success-foreground hover:bg-success/90"
                                 : ""
-                          }
-                        >
-                          {status.charAt(0).toUpperCase() + status.slice(1)}
-                        </Badge>
-                      </td>
-                      <td className="py-4 text-right">
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+                            }
+                          >
+                            {status.charAt(0).toUpperCase() + status.slice(1)}
+                          </Badge>
+                        </td>
+                        <td className="py-4 text-muted-foreground">
+                          {attendance ? new Date(attendance.markedAt).toLocaleString() : "-"}
+                        </td>
+                        <td className="py-4">
+                          {attendance?.photo ? (
+                            <img
+                              src={attendance.photo}
+                              alt="Attendance photo"
+                              className="h-10 w-10 rounded object-cover"
+                            />
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

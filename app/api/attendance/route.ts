@@ -23,9 +23,53 @@ function deg2rad(deg: number): number {
 
 
 
-export async function GET() {
+export async function GET(request: NextRequest) {
     try {
+        const { searchParams } = new URL(request.url);
+        const dateFilter = searchParams.get('date');
+
+        let whereClause = {};
+        if (dateFilter) {
+            if (dateFilter === 'today') {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const tomorrow = new Date(today);
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                whereClause = {
+                    markedAt: {
+                        gte: today,
+                        lt: tomorrow,
+                    },
+                };
+            } else {
+                // Assume dateFilter is in YYYY-MM-DD format
+                const selectedDate = new Date(dateFilter);
+                selectedDate.setHours(0, 0, 0, 0);
+                const nextDay = new Date(selectedDate);
+                nextDay.setDate(nextDay.getDate() + 1);
+                whereClause = {
+                    markedAt: {
+                        gte: selectedDate,
+                        lt: nextDay,
+                    },
+                };
+            }
+        } else {
+            // Default to today if no date provided
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            whereClause = {
+                markedAt: {
+                    gte: today,
+                    lt: tomorrow,
+                },
+            };
+        }
+
         const attendances = await prisma.attendance.findMany({
+            where: whereClause,
             include: {
                 student: true,
                 session: true,
@@ -67,6 +111,26 @@ export async function POST(request: NextRequest) {
 
         if (!student) {
             return NextResponse.json({ error: 'Student not found' }, { status: 404 });
+        }
+
+        // Check if student has already marked attendance today
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        const existingAttendance = await prisma.attendance.findFirst({
+            where: {
+                studentId: student.id,
+                markedAt: {
+                    gte: today,
+                    lt: tomorrow,
+                },
+            },
+        });
+
+        if (existingAttendance) {
+            return NextResponse.json({ error: 'Attendance already marked for today' }, { status: 409 });
         }
 
         // Validate GPS (within 100m)
